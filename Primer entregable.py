@@ -41,20 +41,29 @@ def save_message_to_file(message, filename="messages.txt"):
 def send_message(message, server_ip, server_port):
     # Crear un socket para el cliente
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((server_ip, server_port))  # Conectar al servidor
-    
-    # Agregar el timestamp al mensaje
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    full_message = f"{timestamp}: {message}"
 
-    # Enviar el mensaje al servidor
-    client_socket.send(full_message.encode('utf-8'))
+    try:
+        client_socket.connect((server_ip, server_port))  # Conectar al servidor
 
-    # Esperar la respuesta del servidor
-    response = client_socket.recv(1024).decode('utf-8')
-    print(f"Respuesta del servidor: {response}")
+        # Agregar el timestamp al mensaje
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        full_message = f"{timestamp}: {message}"
 
-    client_socket.close()  # Cerrar la conexión
+        # Enviar el mensaje al servidor
+        client_socket.send(full_message.encode('utf-8'))
+
+        # Guardar el mensaje enviado en el nodo emisor
+        sent_message = f"Enviado a {server_ip}: {full_message}"
+        save_message_to_file(sent_message)
+
+        # Esperar la respuesta del servidor
+        response = client_socket.recv(1024).decode('utf-8')
+        print(f"Respuesta del servidor: {response}")
+
+    except Exception as e:
+        print(f"Error al enviar mensaje: {e}")
+    finally:
+        client_socket.close()  # Cerrar la conexión
 
 # Función para configurar y ejecutar el servidor
 def server(server_port, messages):
