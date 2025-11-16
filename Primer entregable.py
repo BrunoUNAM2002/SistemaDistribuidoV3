@@ -147,8 +147,10 @@ def server(server_port, messages):
 
 # Función principal que maneja tanto cliente como servidor
 def main():
+
     server_port = 5555
     messages = []
+    init_db = []
     
     # Ejecutar el servidor en un hilo daemon
     server_thread = threading.Thread(target=server, args=(server_port, messages))
