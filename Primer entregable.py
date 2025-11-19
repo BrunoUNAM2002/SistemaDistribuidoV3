@@ -1,5 +1,6 @@
 import socket
 import threading
+from datetime import datetime
 import sqlite3
 import json
 import os
@@ -182,6 +183,84 @@ def ver_trabajadores_sociales():
     for r in rows:
         estado = "Activo" if r[2] == 1 else "Inactivo"
         print(f"   ID: {r[0]} | {r[1]} ({estado})")
+
+def asignar_doctor():
+    print("\n--- ASIGNAR DOCTOR A PACIENTE ---")
+    
+    # 1. Pedimos los IDs
+    try:
+        ver_pacientes_locales() # Mostramos la lista para que el usuario sepa qué ID elegir
+        id_paciente = int(input("\nIngrese ID del Paciente: "))
+        
+        print("\n--- Doctores Disponibles ---")
+        ver_doctores_locales()
+        id_doctor = int(input("Ingrese ID del Doctor a asignar: "))
+    except ValueError:
+        print("Error: Debes ingresar números válidos.")
+        return
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # 2. Verificamos si el doctor está realmente disponible
+        cursor.execute("SELECT disponible, nombre FROM DOCTORES WHERE id = ?", (id_doctor,))
+        doctor_data = cursor.fetchone()
+        
+        if not doctor_data:
+            print("Error: El doctor no existe.")
+            return
+            
+        if doctor_data[0] == 0:
+            print(f"Error: El {doctor_data[1]} ya está OCUPADO con otro paciente.")
+            return
+
+        # 3. Realizamos la ASIGNACIÓN (Son 2 pasos en la BD)
+        
+        # Paso A: Actualizamos la visita médica del paciente
+        # (Asumimos que ya existe una visita creada al registrar al paciente, si no, habría que crearla)
+        # Nota: Si no hay visita abierta, esto no hará nada, pero para este ejemplo asumimos que sí.
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Verificamos si el paciente ya tiene visita
+        cursor.execute("SELECT folio FROM VISITAS_EMERGENCIA WHERE paciente_id = ?", (id_paciente,))
+        visita = cursor.fetchone()
+        
+        if visita:
+            # Actualizamos visita existente
+            cursor.execute("""
+                UPDATE VISITAS_EMERGENCIA 
+                SET doctor_id = ?, estado = 'En Consulta' 
+                WHERE paciente_id = ?
+            """, (id_doctor, id_paciente))
+        else:
+            # Creamos nueva visita si no tenía
+            folio = f"URG-{id_paciente}-{id_doctor}"
+            cursor.execute("""
+                INSERT INTO VISITAS_EMERGENCIA (folio, paciente_id, doctor_id, sala_id, timestamp, estado)
+                VALUES (?, ?, ?, 1, ?, 'En Consulta')
+            """, (folio, id_paciente, id_doctor, timestamp))
+
+        # Paso B: Marcamos al doctor como OCUPADO
+        cursor.execute("UPDATE DOCTORES SET disponible = 0 WHERE id = ?", (id_doctor,))
+        
+        conn.commit()
+        
+        print(f"\n¡Éxito! El {doctor_data[1]} ha sido asignado al paciente {id_paciente}.")
+        
+        # Paso 4: Propagamos el cambio (JSON simple para notificar)
+        comando = {
+            "accion": "ASIGNAR_DOCTOR",
+            "datos": {"paciente_id": id_paciente, "doctor_id": id_doctor}
+        }
+        propagar_transaccion(json.dumps(comando))
+
+    except Exception as e:
+        print(f"Error al asignar: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
 
 def ver_visitas_emergencia():
     print("\n--- HISTORIAL DE VISITAS (Bitácora) ---")
