@@ -2,11 +2,8 @@ import sqlite3
 import os
 from datetime import datetime
 
-# --- Configuración de Rutas ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'emergencias.db')
-
-print(f"Conectando a la base de datos en: {DB_PATH}")
 
 def poblar_datos_reales():
     conn = None
@@ -15,8 +12,10 @@ def poblar_datos_reales():
         cursor = conn.cursor()
         cursor.execute("PRAGMA foreign_keys = ON;")
 
-        # --- 1. LIMPIEZA TOTAL ---
-        print("🧹 Limpiando datos antiguos...")
+        print("🧹 Limpiando base de datos...")
+        # Borramos tabla de usuarios si existe
+        cursor.execute("DROP TABLE IF EXISTS USUARIOS_SISTEMA")
+        
         cursor.execute("DELETE FROM VISITAS_EMERGENCIA")
         cursor.execute("DELETE FROM CAMAS_ATENCION")
         cursor.execute("DELETE FROM DOCTORES")
@@ -24,79 +23,70 @@ def poblar_datos_reales():
         cursor.execute("DELETE FROM PACIENTES")
         cursor.execute("DELETE FROM sqlite_sequence") 
 
-        # --- 2. PACIENTES (3 Casos Activos) ---
-        print("Registrando Pacientes...")
+        # --- CREAR TABLA DE USUARIOS (Solo para este script de población) ---
+        # En el script principal init_db también debe estar, pero aquí aseguramos para insertar
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS USUARIOS_SISTEMA (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            rol TEXT NOT NULL,  -- 'DOCTOR' o 'SOCIAL'
+            id_personal INTEGER -- ID vinculado a tabla DOCTORES o TRABAJADORES_SOCIALES
+        )
+        """)
+
+        # --- PACIENTES ---
         pacientes = [
-            ('Gerardo Martínez', 34, 'M', '555-0192'), # ID 1
-            ('Lucía Fernández', 28, 'F', '555-1283'),  # ID 2
-            ('Pedro N.', 8, 'M', 'Sin contacto')       # ID 3
+            ('Gerardo Martínez', 34, 'M', '555-0192'),
+            ('Lucía Fernández', 28, 'F', '555-1283'),
+            ('Pedro N.', 8, 'M', 'Sin contacto')
         ]
         cursor.executemany("INSERT INTO PACIENTES (nombre, edad, sexo, contacto) VALUES (?, ?, ?, ?)", pacientes)
 
-        # --- 3. DOCTORES (10 Doctores - SIN ESPECIALIDAD) ---
-        print("Registrando Plantilla de 10 Doctores...")
-        # Formato: (Nombre, Sala_ID, Disponible)
+        # --- DOCTORES ---
         doctores = [
-            # -- Los originales --
-            ('Dr. Ricardo Mendiola', 1, 1),      # ID 1: Disp
-            ('Dra. Elena Vázquez', 1, 0),        # ID 2: Ocupada
-            ('Dr. Samuel Hernandez', 1, 1),            # ID 3: Disp
-            ('Dra. Sofía Ramírez', 1, 0),        # ID 4: Ocupada
-            
-            # -- Los nuevos ingresos --
-            ('Dr. Carlos Ruiz', 1, 1),           # ID 5: Disp
-            ('Dra. Ana Torres', 1, 1),           # ID 6: Disp
-            ('Dr. Luis Fernández', 1, 0),        # ID 7: Ocupado
-            ('Dra. Patricia López', 1, 1),       # ID 8: Disp
-            ('Dr. Miguel Ángel Torres', 1, 1),   # ID 9: Disp
-            ('Dra. Carmen Diaz', 1, 1)        # ID 10: Disp
+            ('Dr. Ricardo Mendiola', 1, 1),
+            ('Dra. Elena Vázquez', 1, 0),
+            ('Dr. Samuel Kim', 1, 1)
         ]
-        # Nota: Se eliminó 'especialidad' del INSERT
         cursor.executemany("INSERT INTO DOCTORES (nombre, sala_id, disponible) VALUES (?, ?, ?)", doctores)
 
-        # --- 4. TRABAJO SOCIAL ---
-        print("📋 Registrando Trabajo Social...")
+        # --- TRABAJO SOCIAL ---
+        # ID 1 será Lic. Roberto Gómez
         cursor.execute("INSERT INTO TRABAJADORES_SOCIALES (nombre, sala_id, activo) VALUES ('Lic. Roberto Gómez', 1, 1)")
 
-        # --- 5. CAMAS (10 Camas: 3 Ocupadas, 7 Libres) ---
-        print("🛏️ Asignando Camas (101-110)...")
-        
-        # Camas Ocupadas
-        cursor.execute("INSERT INTO CAMAS_ATENCION (numero, sala_id, ocupada, paciente_id) VALUES (101, 1, 1, 1)") # Gerardo
-        cursor.execute("INSERT INTO CAMAS_ATENCION (numero, sala_id, ocupada, paciente_id) VALUES (102, 1, 1, 2)") # Lucía
-        cursor.execute("INSERT INTO CAMAS_ATENCION (numero, sala_id, ocupada, paciente_id) VALUES (103, 1, 1, 3)") # Pedro
-
-        # Camas Libres (104-110)
+        # --- CAMAS ---
+        cursor.execute("INSERT INTO CAMAS_ATENCION (numero, sala_id, ocupada, paciente_id) VALUES (101, 1, 1, 1)")
+        cursor.execute("INSERT INTO CAMAS_ATENCION (numero, sala_id, ocupada, paciente_id) VALUES (102, 1, 1, 2)")
+        cursor.execute("INSERT INTO CAMAS_ATENCION (numero, sala_id, ocupada, paciente_id) VALUES (103, 1, 1, 3)")
         for i in range(104, 111):
             cursor.execute("INSERT INTO CAMAS_ATENCION (numero, sala_id, ocupada, paciente_id) VALUES (?, 1, 0, NULL)", (i,))
 
-        # --- 6. VISITAS DE EMERGENCIA ---
-        print("Creando Expedientes de Visita...")
+        # --- VISITAS ---
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
         visitas = [
-            ('URG-2025-001', 1, 2, 1, None, 1, timestamp, 'En Tratamiento'),    # Gerardo c/ Dra. Elena
-            ('URG-2025-002', 2, 3, 2, 1, 1, timestamp, 'En Observación'),       # Lucía c/ Dr. Samuel
-            ('URG-2025-003', 3, 4, 3, None, 1, timestamp, 'Estabilización')     # Pedro c/ Dra. Sofía
+            ('URG-2025-001', 1, 2, 1, None, 1, timestamp, 'En Tratamiento'),
+            ('URG-2025-002', 2, 3, 2, 1, 1, timestamp, 'En Observación')
         ]
-        
-        cursor.executemany("""
-            INSERT INTO VISITAS_EMERGENCIA 
-            (folio, paciente_id, doctor_id, cama_id, trabajador_social_id, sala_id, timestamp, estado) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, visitas)
+        cursor.executemany("INSERT INTO VISITAS_EMERGENCIA (folio, paciente_id, doctor_id, cama_id, trabajador_social_id, sala_id, timestamp, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", visitas)
 
-        # --- FINALIZAR ---
+        # --- 🔐 USUARIOS DEL SISTEMA (LOGIN) ---
+        print("🔐 Creando usuarios de acceso...")
+        usuarios = [
+            # Username, Password, Rol, ID_Personal
+            ('social1', '1234', 'SOCIAL', 1),      # El Lic. Roberto Gómez
+            ('doc_ricardo', 'doctor1', 'DOCTOR', 1), # Dr. Ricardo
+            ('doc_elena', 'doctor2', 'DOCTOR', 2)    # Dra. Elena
+        ]
+        cursor.executemany("INSERT INTO USUARIOS_SISTEMA (username, password, rol, id_personal) VALUES (?, ?, ?, ?)", usuarios)
+
         conn.commit()
-        print("\n¡Datos actualizados correctamente (Sin Especialidades)!")
-        print("Escenario:")
-        print("  - 10 Doctores en plantilla.")
-        print("  - 3 Pacientes ingresados.")
-        print("  - 10 Camas configuradas.")
+        print("\n✅ Base de datos actualizada con Usuarios y Roles.")
+        print("Usuario Trabajo Social: 'social1' / pass: '1234'")
+        print("Usuario Doctor: 'doc_ricardo' / pass: 'doctor1'")
 
     except Exception as e:
         print(f"❌ Error: {e}")
-        if conn: conn.rollback()
     finally:
         if conn: conn.close()
 
