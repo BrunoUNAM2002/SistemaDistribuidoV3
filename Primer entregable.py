@@ -102,22 +102,42 @@ def server(server_port):
 # --- FUNCIONES DE LA APLICACIÓN (VISUALIZACIÓN) ---
 
 def ver_pacientes_locales():
-    print("\n--- PACIENTES REGISTRADOS ---")
+    print("\n--- 🤕 PACIENTES Y SU MÉDICO ASIGNADO ---")
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, nombre, edad, contacto FROM PACIENTES")
+    
+    # SQL AVANZADO:
+    # Unimos la tabla PACIENTES (p) con VISITAS (v) y luego con DOCTORES (d)
+    query = """
+        SELECT p.id, p.nombre, p.edad, d.nombre
+        FROM PACIENTES p
+        LEFT JOIN VISITAS_EMERGENCIA v ON p.id = v.paciente_id
+        LEFT JOIN DOCTORES d ON v.doctor_id = d.id
+    """
+    
+    cursor.execute(query)
     rows = cursor.fetchall()
     conn.close()
     
-    if not rows: print("   (Sin registros)")
+    if not rows:
+        print("   (Sin registros)")
+    
     for r in rows:
-        print(f"   ID: {r[0]} | {r[1]} ({r[2]} años) - Tel: {r[3]}")
+        # r[0]=id, r[1]=nombre_paciente, r[2]=edad, r[3]=nombre_doctor
+        
+        if r[3]: # Si r[3] no es None, hay un doctor asignado
+            estado_medico = f"✅ Atendido por: {r[3]}"
+        else:
+            estado_medico = "⚠️ ESPERANDO ASIGNACIÓN"
+            
+        print(f"   ID: {r[0]} | {r[1]} ({r[2]} años) -> {estado_medico}")
+
+#Ver doctores locales 
 
 def ver_doctores_locales():
     print("\n--- 👨‍⚕️ DOCTORES ---")
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    # NOTA: Eliminé 'especialidad' de la consulta
     cursor.execute("SELECT id, nombre, disponible FROM DOCTORES")
     rows = cursor.fetchall()
     conn.close()
