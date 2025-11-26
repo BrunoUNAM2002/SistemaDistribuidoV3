@@ -1,4 +1,3 @@
--- Habilita el uso de claves foráneas en SQLite (importante)
 PRAGMA foreign_keys = ON;
 
 -- 1. TABLA DE PACIENTES
@@ -61,4 +60,10 @@ CREATE TABLE IF NOT EXISTS USUARIOS_SISTEMA (
     password TEXT NOT NULL,
     rol TEXT NOT NULL,
     id_personal INTEGER
+);
+
+-- 7. TABLA DE CONSECUTIVOS (NUEVA)
+CREATE TABLE IF NOT EXISTS CONSECUTIVOS_VISITAS (
+    sala_id INTEGER PRIMARY KEY,
+    ultimo_consecutivo INTEGER DEFAULT 0
 );
