@@ -26,13 +26,13 @@ CREATE TABLE IF NOT EXISTS TRABAJADORES_SOCIALES (
     activo INTEGER DEFAULT 1
 );
 
--- Tabla de camas de atención con estado de ocupación
+-- Tabla de camas de atención con estado de ocupación - SIN UNIQUE constraint
 CREATE TABLE IF NOT EXISTS CAMAS_ATENCION (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numero INTEGER NOT NULL,
     sala_id INTEGER NOT NULL,
     ocupada INTEGER DEFAULT 0,
-    paciente_id INTEGER,
+    paciente_id INTEGER,  -- ✅ SIN UNIQUE constraint
     
     FOREIGN KEY (paciente_id) REFERENCES PACIENTES(id)
 );
