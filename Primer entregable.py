@@ -20,8 +20,8 @@ SERVER_PORT = 5555
 
 # ⚠️ CONFIGURA SEGÚN TU VM ⚠️
 NODOS_REMOTOS = [
-    # ('192.168.95.131', 5555),
-    # ('192.168.95.132', 5555),
+     ('192.168.95.130', 5555),
+     ('192.168.95.131', 5555),
 ]
 
 shutdown_event = threading.Event()
